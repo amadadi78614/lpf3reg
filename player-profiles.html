@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LPFL Player Profiles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f7f6f2; --surface:#fff; --text:#28251d; --muted:#6f6b63; --border:rgba(40,37,29,.12); --primary:#01696f; --primary2:#0c4e54; --shadow:0 10px 30px rgba(30,20,10,.08); --radius:20px; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:linear-gradient(180deg,#fbfaf7 0%,var(--bg) 100%);color:var(--text)}
+    .wrap{max-width:1400px;margin:0 auto;padding:24px}.header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:22px}.title h1{margin:0;font-size:clamp(28px,4vw,48px);line-height:1.02}.title p{margin:8px 0 0;color:var(--muted);font-size:15px}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pill{background:rgba(1,105,111,.1);color:var(--primary);border:1px solid rgba(1,105,111,.18);padding:10px 14px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}.status-dot{width:10px;height:10px;border-radius:50%;background:#19c37d;display:inline-block;box-shadow:0 0 0 6px rgba(25,195,125,.12)}.btn{border:1px solid rgba(1,105,111,.18);background:#fff;color:var(--primary2);padding:10px 14px;border-radius:999px;font-weight:700;cursor:pointer}.btn:hover{background:#f4fbfa}
+    .status{margin:0 0 18px;padding:12px 14px;border-radius:14px;border:1px solid var(--border);background:#fff;color:var(--muted);font-size:14px}
+    .profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+    .card{background:rgba(255,255,255,.88);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-height:540px}
+    .photo{aspect-ratio:4/3;background:#ece8e1;overflow:hidden;position:relative}.photo img{width:100%;height:100%;object-fit:cover}.photo .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:800;color:#c2bbb1;background:linear-gradient(135deg,#f0ece6,#e4ddd3)}
+    .body{padding:20px;display:flex;flex-direction:column;gap:16px}.name{font-size:clamp(30px,4vw,46px);line-height:.98;font-weight:800;letter-spacing:-.03em}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{padding:14px;border:1px solid var(--border);background:#fcfbf8;border-radius:16px}.stat .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px}.stat .value{font-size:22px;font-weight:800;line-height:1.1}.team{padding:16px;border-radius:16px;background:#eef6f5;border:1px solid rgba(1,105,111,.12)}.team .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px}.team .value{font-size:24px;font-weight:800;line-height:1.1;color:var(--primary2)}
+    .details{display:flex;flex-wrap:wrap;gap:10px}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#f4f1ec;border:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text)}
+    @media (max-width:620px){.wrap{padding:16px}.header{flex-direction:column}.profiles{grid-template-columns:1fr}.body{padding:16px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="title"><h1>LPFL Player Profiles</h1><p>Scrollable profile cards from the published Google Sheet.</p></div>
+      <div class="toolbar"><button class="btn" id="refreshBtn">Refresh now</button><div class="pill"><span class="status-dot"></span> Live player profiles</div></div>
+    </div>
+    <div class="status" id="statusBox">Waiting to load player profiles…</div>
+    <section class="profiles" id="profiles"></section>
+  </div>
+<script>
+const baseCsvUrl='https://docs.google.com/spreadsheets/d/e/2PACX-1vRawyxX3mmZnCP6G2zinsUk1ESpsEYQaf7AQ_yaeGrQ1lwBMEpXIPE7kOpJeUKU4R7pUQdqODtTbziA/pub?gid=829749545&single=true&output=csv';
+const els={profiles:document.getElementById('profiles'),statusBox:document.getElementById('statusBox'),refreshBtn:document.getElementById('refreshBtn')};
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function fullName(r){return [r['First Name'],r['Surname']].filter(Boolean).join(' ').trim()||'—';}
+function parseCSV(text){const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(q&&n==='"'){cell+='"';i++;}else{q=!q;}}else if(c===','&&!q){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n') i++;row.push(cell);if(row.some(v=>String(v).trim()!=='')) rows.push(row);row=[];cell='';}else{cell+=c;}}if(cell.length||row.length){row.push(cell);rows.push(row);}const headers=rows.shift()||[];return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
+function driveImage(url){const m=String(url||'').match(/\/d\/([^/]+)/); return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : '';}
+function render(rows){const clean=rows.filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));clean.sort((a,b)=>new Date(b['Timestamp'])-new Date(a['Timestamp']));const seen=new Set();const unique=[];for(const r of clean){const key=`${String(r['Email']||'').trim().toLowerCase()}|${fullName(r).toLowerCase()}`;if(!seen.has(key)){seen.add(key);unique.push(r);}}
+      els.profiles.innerHTML=unique.map(r=>{const name=fullName(r);const rating=r['Playtomic Rating']||'—';const team=r['Season 2 Team']||'—';const previousTeam=String(team).trim().toLowerCase()==='new player'?'New Player':team;const sides=r['Preferred Side']||r['Handed']||'—';const img=driveImage(r['Photo URL']);const initials=(r['First Name']||name||'P').trim().charAt(0).toUpperCase();return `
+        <article class="card">
+          <div class="photo">${img?`<img src="${esc(img)}" alt="${esc(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`:''}<div class="fallback" style="display:${img?'none':'flex'}">${esc(initials)}</div></div>
+          <div class="body">
+            <div class="name">${esc(name)}</div>
+            <div class="meta-grid">
+              <div class="stat"><div class="label">Playtomic rating</div><div class="value">${esc(rating)}</div></div>
+              <div class="stat"><div class="label">Sides</div><div class="value">${esc(sides)}</div></div>
+            </div>
+            <div class="team"><div class="label">Previous team</div><div class="value">${esc(previousTeam)}</div></div>
+            <div class="details">
+              <span class="chip">Email: ${esc(r['Email']||'—')}</span>
+              <span class="chip">Handed: ${esc(r['Handed']||'—')}</span>
+              <span class="chip">Shirt: ${esc(r['Shirt Size']||'—')}</span>
+            </div>
+          </div>
+        </article>`;}).join('');
+      const now=new Intl.DateTimeFormat('en-ZA',{dateStyle:'medium',timeStyle:'medium'}).format(new Date());
+      els.statusBox.textContent=`Loaded ${unique.length} player profiles live from Google Sheets at ${now}.`;
+}
+function fail(msg){els.profiles.innerHTML='';els.statusBox.textContent=msg;}
+async function loadData(){els.refreshBtn.disabled=true;els.statusBox.textContent='Loading live player profiles from Google Sheets…';try{const url=`${baseCsvUrl}&t=${Date.now()}`;const res=await fetch(url,{cache:'no-store'});if(!res.ok) throw new Error(`HTTP ${res.status}`);const text=await res.text();if(!text || !text.startsWith('Timestamp,Email,First Name,Surname')) throw new Error('Unexpected CSV response');render(parseCSV(text));}catch(err){fail(`Could not load player profiles: ${err.message}`);}finally{els.refreshBtn.disabled=false;}}
+els.refreshBtn.addEventListener('click',loadData);loadData();setInterval(loadData,60000);
+</script>
+</body>
+</html>
